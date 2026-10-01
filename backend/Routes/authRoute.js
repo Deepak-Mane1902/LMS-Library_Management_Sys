@@ -13,7 +13,7 @@ authRouter.post('/register-admin',registerAdmin);
 
 // Protected Routes
 authRouter.get('/me',authToken, getProfile);
-authRouter.get('/users',authToken, authorizeRoles("admin ") ,getusers);
+authRouter.get('/users',authToken, authorizeRoles("admin") ,getusers);
 
 authRouter.put('/update-profile',authToken, updateProfile);
 

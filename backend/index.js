@@ -1,55 +1,82 @@
-import "dotenv/config";
+import 'dotenv/config';
 
-import express from "express";
-import cors from "cors";
+import express from 'express';
+import cors from 'cors';
 
-import { connectDB } from "./database/dbConnect.js";
+import { connectDB } from './database/dbConnect.js';
 
-import authRouter from "./Routes/authRoute.js";
-import studentRouter from "./Routes/studentRoute.js";
-import bookRouter from "./Routes/bookRoute.js";
+import authRouter from './Routes/authRoute.js';
+import studentRouter from './Routes/studentRoute.js';
+import bookRouter from './Routes/bookRoute.js';
 
 const app = express();
 
 const port = process.env.PORT || 5000;
 
 // ===============================
-// MIDDLEWARES
+// Middlewares
 // ===============================
 
 app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
+    cors({
+        origin: [
+            'http://localhost:5173',
+            'https://lms-library-management-sys.vercel.app'
+        ],
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization']
+    })
 );
 
 app.use(express.json());
 
 // ===============================
-// ROUTES
+// Routes
 // ===============================
 
-app.use("/api/auth", authRouter);
+app.use('/api/auth', authRouter);
 
-app.use("/api/student", studentRouter);
+app.use('/api/student', studentRouter);
 
-app.use("/api/book", bookRouter);
+app.use('/api/book', bookRouter);
 
 // ===============================
-// HEALTH CHECK
+// Health Check
 // ===============================
 
-app.get("/", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "LMS Backend API is running",
-  });
+app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'LMS Backend API is running'
+    });
 });
 
 // ===============================
-// START SERVER
+// 404 Handler
+// ===============================
+
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: `Route not found: ${req.method} ${req.originalUrl}`
+    });
+});
+
+// ===============================
+// Error Handler
+// ===============================
+
+app.use((err, req, res, next) => {
+    console.error('Server Error:', err);
+
+    res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+    });
+});
+
+// ===============================
+// Database
 // ===============================
 
 const startServer = async () => {
@@ -66,6 +93,9 @@ const startServer = async () => {
 
     process.exit(1);
   }
+
+
+  // Server live host 
 
   app.listen(port, "0.0.0.0", () => {
     console.log(`Server running on port ${port}`);
