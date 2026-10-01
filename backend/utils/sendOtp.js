@@ -1,56 +1,61 @@
 import nodemailer from "nodemailer";
 
-// ======================================================
-// CREATE EMAIL TRANSPORTER
-// ======================================================
-
-const createTransporter = () => {
-  const emailUser = process.env.EMAIL_USER;
-  const emailPass = process.env.EMAIL_PASS;
-
-  if (!emailUser || !emailPass) {
-    throw new Error(
-      "EMAIL_USER or EMAIL_PASS is missing from environment variables"
-    );
-  }
-
-  return nodemailer.createTransport({
-    service: "gmail",
-
-    auth: {
-      user: emailUser,
-      pass: emailPass,
-    },
-  });
-};
-
-// ======================================================
-// SEND OTP
-// ======================================================
-
 const sendOtp = async (email, otp) => {
   try {
-    if (!email) {
-      throw new Error("Recipient email is required");
+    // --------------------------------------------------
+    // Check environment variables
+    // --------------------------------------------------
+    if (!process.env.EMAIL_USER) {
+      throw new Error("EMAIL_USER is missing");
     }
 
-    if (!otp) {
-      throw new Error("OTP is required");
+    if (!process.env.EMAIL_PASS) {
+      throw new Error("EMAIL_PASS is missing");
     }
 
-    const transporter = createTransporter();
+    console.log("=================================");
+    console.log("EMAIL CONFIG CHECK");
+    console.log("EMAIL_USER:", process.env.EMAIL_USER);
+    console.log(
+      "EMAIL_PASS:",
+      process.env.EMAIL_PASS ? "AVAILABLE" : "MISSING"
+    );
+    console.log("=================================");
 
-    // Verify SMTP configuration first
+    // --------------------------------------------------
+    // Create Gmail transporter
+    // --------------------------------------------------
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
+    });
+
+    // --------------------------------------------------
+    // Verify SMTP connection
+    // --------------------------------------------------
     await transporter.verify();
 
-    const mailOptions = {
+    console.log("SMTP connection verified successfully");
+
+    // --------------------------------------------------
+    // Send OTP email
+    // --------------------------------------------------
+    const info = await transporter.sendMail({
       from: `"LMS Library Management System" <${process.env.EMAIL_USER}>`,
-
       to: email,
+      subject: "Your LMS Verification OTP",
 
-      subject: "Your LMS Email Verification OTP",
-
-      text: `Your LMS verification OTP is ${otp}. This OTP is valid for 5 minutes.`,
+      text: `Your LMS verification OTP is ${otp}. This OTP will expire in 5 minutes.`,
 
       html: `
         <div style="
@@ -58,20 +63,17 @@ const sendOtp = async (email, otp) => {
           max-width: 600px;
           margin: 0 auto;
           padding: 30px;
-          background: #f7f7f7;
+          background: #f5f5f5;
         ">
 
           <div style="
-            background: #ffffff;
+            background: white;
             padding: 30px;
             border-radius: 12px;
           ">
 
-            <h2 style="
-              margin-top: 0;
-              color: #173f32;
-            ">
-              LMS Email Verification
+            <h2 style="margin-bottom: 10px;">
+              LMS Library Management System
             </h2>
 
             <p>
@@ -79,28 +81,20 @@ const sendOtp = async (email, otp) => {
             </p>
 
             <p>
-              Your One-Time Password (OTP) for creating your
-              LMS Library Management System account is:
+              Your OTP for verifying your LMS account is:
             </p>
 
             <div style="
-              margin: 25px 0;
+              font-size: 32px;
+              font-weight: bold;
+              letter-spacing: 8px;
+              padding: 20px;
+              margin: 20px 0;
+              background: #f1f5f9;
               text-align: center;
+              border-radius: 8px;
             ">
-
-              <span style="
-                display: inline-block;
-                padding: 15px 30px;
-                background: #173f32;
-                color: #ffffff;
-                font-size: 28px;
-                font-weight: bold;
-                letter-spacing: 8px;
-                border-radius: 8px;
-              ">
-                ${otp}
-              </span>
-
+              ${otp}
             </div>
 
             <p>
@@ -108,28 +102,26 @@ const sendOtp = async (email, otp) => {
             </p>
 
             <p>
-              If you did not request this OTP, you can safely ignore
-              this email.
+              If you did not request this OTP, you can safely ignore this email.
             </p>
 
             <hr />
 
             <p style="
-              color: #777;
               font-size: 12px;
+              color: #777;
             ">
-              LMS Library Management System
+              This is an automated email from LMS Library Management System.
             </p>
 
           </div>
 
         </div>
       `,
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-
-    console.log("OTP email sent successfully:", info.messageId);
+    console.log("OTP email sent successfully");
+    console.log("Message ID:", info.messageId);
 
     return {
       success: true,
@@ -137,11 +129,15 @@ const sendOtp = async (email, otp) => {
     };
 
   } catch (error) {
-    console.error("OTP email sending error:", error);
+    console.error("=================================");
+    console.error("OTP EMAIL ERROR");
+    console.error("Code:", error.code);
+    console.error("Command:", error.command);
+    console.error("Response:", error.response);
+    console.error("Message:", error.message);
+    console.error("=================================");
 
-    throw new Error(
-      `Failed to send OTP email: ${error.message}`
-    );
+    throw error;
   }
 };
 

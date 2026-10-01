@@ -16,202 +16,213 @@ import jwt from "jsonwebtoken";
 
 export async function registerUser(req, res) {
   try {
-    console.log("========================================");
-    console.log("1. Registration started");
-    console.log("========================================");
-
     const {
       name,
       email,
       phone,
-      password,
+      password
     } = req.body;
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Validate required fields
-    // ------------------------------------------
-
-    if (!name || !email || !password) {
+    // --------------------------------------------------
+    if (!name || !email || !phone || !password) {
       return res.status(400).json({
         success: false,
-        message: "Name, email and password are required",
+        message: "All fields are required"
       });
     }
 
-    // ------------------------------------------
-    // Normalize email
-    // ------------------------------------------
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedPhone = String(phone).trim();
 
-    const normalizedEmail = email.trim().toLowerCase();
+    // --------------------------------------------------
+    // Validate email
+    // --------------------------------------------------
+    const emailRegex =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    // ------------------------------------------
-    // Clean phone number
-    // ------------------------------------------
-
-    const cleanPhone = phone
-      ? phone.toString().replace(/\D/g, "")
-      : "";
-
-    if (cleanPhone.length !== 10) {
+    if (!emailRegex.test(normalizedEmail)) {
       return res.status(400).json({
         success: false,
-        message: "Mobile number must be exactly 10 digits",
+        message: "Please enter a valid email address"
       });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
+    // Validate phone
+    // --------------------------------------------------
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number must contain exactly 10 digits"
+      });
+    }
+
+    // --------------------------------------------------
     // Check existing user
-    // ------------------------------------------
-
-    console.log("2. Checking existing user...");
-
-    const existingUser = await User.findOne({
-      email: normalizedEmail,
+    // --------------------------------------------------
+    let existingUser = await User.findOne({
+      email: normalizedEmail
     });
 
-    console.log("3. Existing user check completed");
+    // --------------------------------------------------
+    // Delete unverified previous registration
+    // --------------------------------------------------
+    if (existingUser) {
 
-    // ------------------------------------------
-    // If verified user already exists
-    // ------------------------------------------
-
-    if (existingUser && existingUser.isVerified) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists",
-      });
-    }
-
-    // ------------------------------------------
-    // Delete old unverified account
-    // ------------------------------------------
-
-    if (existingUser && !existingUser.isVerified) {
-      console.log("4. Removing old unverified user...");
+      if (existingUser.isVerified) {
+        return res.status(409).json({
+          success: false,
+          message: "Email is already registered"
+        });
+      }
 
       await User.deleteOne({
-        email: normalizedEmail,
+        _id: existingUser._id
       });
 
-      console.log("5. Old unverified user deleted");
-    }
-
-    // ------------------------------------------
-    // Generate OTP
-    // ------------------------------------------
-
-    const otp = generate(6, {
-      upperCaseAlphabets: false,
-      lowerCaseAlphabets: false,
-      specialChars: false,
-    });
-
-    console.log("6. OTP generated");
-
-    // ------------------------------------------
-    // Send OTP
-    // ------------------------------------------
-
-    console.log("7. Sending OTP to:", normalizedEmail);
-
-    try {
-      await sendOtp(normalizedEmail, otp);
-
-      console.log("8. OTP sent successfully");
-    } catch (emailError) {
-      console.error(
-        "OTP sending failed:",
-        emailError
+      console.log(
+        "Deleted previous unverified user:",
+        normalizedEmail
       );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to send OTP to email. Please try again.",
-      });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
+    // Generate OTP
+    // --------------------------------------------------
+    const otp = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    console.log("Generated OTP for:", normalizedEmail);
+
+    // --------------------------------------------------
+    // OTP expiry - 5 minutes
+    // --------------------------------------------------
+    const otpExpires = new Date(
+      Date.now() + 5 * 60 * 1000
+    );
+
+    // --------------------------------------------------
     // Hash password
-    // ------------------------------------------
-
-    console.log("9. Hashing password...");
-
-    const hashPassword = await bcrypt.hash(
+    // --------------------------------------------------
+    const hashedPassword = await bcrypt.hash(
       password,
       10
     );
 
-    console.log("10. Password hashed");
-
-    // ------------------------------------------
-    // OTP expiry
-    // ------------------------------------------
-
-    const otpExpiry = new Date(
-      Date.now() + 5 * 60 * 1000
-    );
-
-    // ------------------------------------------
+    // --------------------------------------------------
     // Generate student ID
-    // ------------------------------------------
+    // --------------------------------------------------
+    const studentId =
+      `STU-${Date.now()}`;
 
-    const studentId = `ST-${uuidv4()
-      .slice(0, 8)
-      .toUpperCase()}`;
-
-    // ------------------------------------------
+    // --------------------------------------------------
     // Create user
-    // ------------------------------------------
-
-    console.log("11. Creating user in MongoDB...");
-
+    // --------------------------------------------------
     const user = await User.create({
-      name,
+      name: name.trim(),
+
       email: normalizedEmail,
-      phone: cleanPhone,
-      password: hashPassword,
+
+      phone: normalizedPhone,
+
+      password: hashedPassword,
+
+      role: "user",
+
+      isVerified: false,
+
       otp,
-      otpExpiry,
-      studentId,
+
+      otpExpires,
+
+      studentId
     });
 
-    console.log("12. User created successfully");
+    console.log(
+      "User created successfully:",
+      user.email
+    );
 
-    // ------------------------------------------
-    // Remove password from response
-    // ------------------------------------------
+    // --------------------------------------------------
+    // Send OTP
+    // --------------------------------------------------
+    try {
 
-    const {
-      password: _,
-      ...userResponse
-    } = user.toObject();
+      await sendOtp(
+        normalizedEmail,
+        otp
+      );
 
-    // ------------------------------------------
-    // Response
-    // ------------------------------------------
+      console.log(
+        "OTP sent successfully to:",
+        normalizedEmail
+      );
 
+    } catch (emailError) {
+
+      console.error(
+        "OTP EMAIL ERROR:"
+      );
+
+      console.error(
+        "Code:",
+        emailError.code
+      );
+
+      console.error(
+        "Message:",
+        emailError.message
+      );
+
+      console.error(
+        "Response:",
+        emailError.response
+      );
+
+      // Remove user if email could not be sent
+      await User.deleteOne({
+        _id: user._id
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send OTP email",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : emailError.message
+      });
+    }
+
+    // --------------------------------------------------
+    // Success
+    // --------------------------------------------------
     return res.status(201).json({
       success: true,
       message:
-        "User registered successfully, OTP sent to email",
-      user: userResponse,
+        "User registered successfully. OTP sent to email."
     });
 
   } catch (error) {
+
     console.error(
-      "Registration error:",
+      "Register User Error:",
       error
     );
 
     return res.status(500).json({
       success: false,
-      message: "Error registering user",
-      error: error.message,
+      message: "Registration failed",
+      error:
+        process.env.NODE_ENV === "production"
+          ? undefined
+          : error.message
     });
   }
 }
-
 // ======================================================
 // STEP 2: VERIFY OTP
 // ======================================================
