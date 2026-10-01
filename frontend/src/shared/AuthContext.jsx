@@ -1,9 +1,10 @@
 import {createContext, useContext, useEffect, useState} from 'react'
+import API_URL from '../config/api';
 
 const AuthContext  = createContext(null);
 const SESSION_KEY = 'library-auth-session';
 const TOKEN_KEY = 'library-auth-token';
-const API_BASE_URL = 'http://localhost:5000/api/auth';
+const API_BASE_URL = `${API_URL}/api/auth`;
 
 const defaultAccounts = []; 
 
