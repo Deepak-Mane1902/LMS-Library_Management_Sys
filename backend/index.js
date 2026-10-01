@@ -21,15 +21,22 @@ app.use("/api/students", studentRouter);
 app.use("/api/books", bookRouter);
 
 
-// Database
-connectDB();
-
 
 app.get('/',(req,res)=>{
      res.send("Hello world")
 })
 
-app.listen(port,"0.0.0.0" ,()=>{
-     console.log(`Server connected to http://localhost:${port} `);
-})
+const startServer = async () => {
+    try {
+        await connectDB();
 
+        app.listen(PORT, "0.0.0.0", () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error("Failed to start server:", error.message);
+        process.exit(1);
+    }
+};
+
+startServer();
