@@ -1,106 +1,145 @@
-import 'dotenv/config';
+import "dotenv/config";
 
-import express from 'express';
-import cors from 'cors';
+import express from "express";
 
-import { connectDB } from './database/dbConnect.js';
+import cors from "cors";
 
-import authRouter from './Routes/authRoute.js';
-import studentRouter from './Routes/studentRoute.js';
-import bookRouter from './Routes/bookRoute.js';
+import { connectDB } from "./database/dbConnect.js";
+
+import authRouter from "./Routes/authRoute.js";
+
+import studentRouter from "./Routes/studentRoute.js";
+
+import bookRouter from "./Routes/bookRoute.js";
+
+// ======================================================
+// APP
+// ======================================================
 
 const app = express();
 
-const port = process.env.PORT || 5000;
+// Render provides PORT automatically.
+// 5000 is used locally.
+const PORT =
+  process.env.PORT || 5000;
 
-// ===============================
-// Middlewares
-// ===============================
+// ======================================================
+// MIDDLEWARE
+// ======================================================
 
 app.use(
-    cors({
-        origin: [
-            'http://localhost:5173',
-            'https://lms-library-management-sys.vercel.app'
-        ],
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization']
-    })
+  cors({
+    origin: true,
+    credentials: true,
+  })
 );
 
-app.use(express.json());
+app.use(
+  express.json()
+);
 
-// ===============================
-// Routes
-// ===============================
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
 
-app.use('/api/auth', authRouter);
+// ======================================================
+// HEALTH CHECK
+// ======================================================
 
-app.use('/api/student', studentRouter);
-
-app.use('/api/book', bookRouter);
-
-// ===============================
-// Health Check
-// ===============================
-
-app.get('/', (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: 'LMS Backend API is running'
-    });
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message:
+      "LMS Backend API is running",
+  });
 });
 
-// ===============================
-// 404 Handler
-// ===============================
+// ======================================================
+// API ROUTES
+// ======================================================
 
-app.use((req, res) => {
+app.use(
+  "/api/auth",
+  authRouter
+);
+
+app.use(
+  "/api/student",
+  studentRouter
+);
+
+app.use(
+  "/api/books",
+  bookRouter
+);
+
+// ======================================================
+// 404 HANDLER
+// ======================================================
+
+app.use(
+  (req, res) => {
     res.status(404).json({
-        success: false,
-        message: `Route not found: ${req.method} ${req.originalUrl}`
+      success: false,
+      message:
+        `Route not found: ${req.method} ${req.originalUrl}`,
     });
-});
+  }
+);
 
-// ===============================
-// Error Handler
-// ===============================
+// ======================================================
+// GLOBAL ERROR HANDLER
+// ======================================================
 
-app.use((err, req, res, next) => {
-    console.error('Server Error:', err);
+app.use(
+  (error, req, res, next) => {
+    console.error(
+      "Global server error:",
+      error
+    );
 
-    res.status(500).json({
-        success: false,
-        message: 'Internal server error'
+    res.status(
+      error.status || 500
+    ).json({
+      success: false,
+      message:
+        error.message ||
+        "Internal server error",
     });
-});
+  }
+);
 
-// ===============================
-// Database
-// ===============================
+// ======================================================
+// DATABASE + SERVER
+// ======================================================
 
 const startServer = async () => {
-  console.log("Starting LMS Backend...");
+  try {
+    await connectDB();
 
-  console.log("Connecting to MongoDB...");
+    app.listen(
+      PORT,
+      () => {
+        console.log(
+          `Server running on port ${PORT}`
+        );
 
-  const connected = await connectDB();
+        console.log(
+          `API Base: /api`
+        );
+      }
+    );
 
-  if (!connected) {
+  } catch (error) {
     console.error(
-      "Server was not started because MongoDB connection failed."
+      "Failed to start server:",
+      error
     );
 
     process.exit(1);
   }
-
-
-  // Server live host 
-
-  app.listen(port, "0.0.0.0", () => {
-    console.log(`Server running on port ${port}`);
-    console.log("LMS Backend is ready to accept requests.");
-  });
 };
 
 startServer();
