@@ -115,7 +115,7 @@ const UserDashboard = () => {
                                    <GraduationCap size={20}/>
                               </span>
                          </div>
-                         <div clasName={s.semesterDetails}>
+                         <div className={s.semesterDetails}>
                               <div className={s.semesterDetailItem}>
                                    Stream: <span className={s.semesterDetailValue}>{currentUser?.stream ?? "General"}</span>
                               </div><br />
