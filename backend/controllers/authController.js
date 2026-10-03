@@ -281,8 +281,8 @@ export async function verifyOtp(req, res) {
 
     if (
       user.otp !== otp ||
-      !user.otpExpiry ||
-      new Date() > new Date(user.otpExpiry)
+      !user.otpExpires ||
+      new Date() > new Date(user.otpExpires)
     ) {
       return res.status(400).json({
         success: false,
@@ -297,7 +297,7 @@ export async function verifyOtp(req, res) {
     Object.assign(user, {
       isVerified: true,
       otp: null,
-      otpExpiry: null,
+      otpExpires: null,
     });
 
     await user.save();
