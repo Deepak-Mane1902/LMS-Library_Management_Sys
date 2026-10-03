@@ -357,6 +357,20 @@ export async function verifyOtp(req, res) {
       message: "OTP verified successfully"
     });
 
+console.log("========== OTP DEBUG ==========");
+console.log("Email:", normalizedEmail);
+console.log("OTP received:", enteredOtp);
+console.log("OTP stored:", storedOtp);
+console.log("OTP expiry:", user.otpExpiry);
+console.log("Current time:", new Date());
+console.log("OTP match:", storedOtp === enteredOtp);
+console.log(
+  "OTP expired:",
+  !user.otpExpiry ||
+  new Date() > new Date(user.otpExpiry)
+);
+console.log("================================");
+
   } catch (error) {
     console.error(
       "VERIFY OTP ERROR:",
@@ -956,16 +970,3 @@ export async function registerAdmin(req, res) {
   }
 }
 
-console.log("========== OTP DEBUG ==========");
-console.log("Email:", normalizedEmail);
-console.log("OTP received:", enteredOtp);
-console.log("OTP stored:", storedOtp);
-console.log("OTP expiry:", user.otpExpiry);
-console.log("Current time:", new Date());
-console.log("OTP match:", storedOtp === enteredOtp);
-console.log(
-  "OTP expired:",
-  !user.otpExpiry ||
-  new Date() > new Date(user.otpExpiry)
-);
-console.log("================================");
