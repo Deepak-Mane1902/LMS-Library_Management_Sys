@@ -1,13 +1,8 @@
 import User from "../models/User.js";
-
 import { generate } from "otp-generator";
-
 import sendOtp from "../utils/sendOtp.js";
-
 import bcrypt from "bcryptjs";
-
 import { v4 as uuidv4 } from "uuid";
-
 import jwt from "jsonwebtoken";
 
 // ======================================================
@@ -26,6 +21,7 @@ export async function registerUser(req, res) {
     // --------------------------------------------------
     // Validate required fields
     // --------------------------------------------------
+
     if (!name || !email || !phone || !password) {
       return res.status(400).json({
         success: false,
@@ -39,6 +35,7 @@ export async function registerUser(req, res) {
     // --------------------------------------------------
     // Validate email
     // --------------------------------------------------
+
     const emailRegex =
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -52,6 +49,7 @@ export async function registerUser(req, res) {
     // --------------------------------------------------
     // Validate phone
     // --------------------------------------------------
+
     if (!/^\d{10}$/.test(normalizedPhone)) {
       return res.status(400).json({
         success: false,
@@ -62,6 +60,7 @@ export async function registerUser(req, res) {
     // --------------------------------------------------
     // Check existing user
     // --------------------------------------------------
+
     let existingUser = await User.findOne({
       email: normalizedEmail
     });
@@ -69,8 +68,8 @@ export async function registerUser(req, res) {
     // --------------------------------------------------
     // Delete unverified previous registration
     // --------------------------------------------------
-    if (existingUser) {
 
+    if (existingUser) {
       if (existingUser.isVerified) {
         return res.status(409).json({
           success: false,
@@ -91,22 +90,29 @@ export async function registerUser(req, res) {
     // --------------------------------------------------
     // Generate OTP
     // --------------------------------------------------
+
     const otp = Math.floor(
       100000 + Math.random() * 900000
     ).toString();
 
-    console.log("Generated OTP for:", normalizedEmail);
+    console.log(
+      "Generated OTP for:",
+      normalizedEmail
+    );
 
     // --------------------------------------------------
     // OTP expiry - 5 minutes
+    // IMPORTANT: User schema uses otpExpiry
     // --------------------------------------------------
-    const otpExpires = new Date(
+
+    const otpExpiry = new Date(
       Date.now() + 5 * 60 * 1000
     );
 
     // --------------------------------------------------
     // Hash password
     // --------------------------------------------------
+
     const hashedPassword = await bcrypt.hash(
       password,
       10
@@ -115,29 +121,22 @@ export async function registerUser(req, res) {
     // --------------------------------------------------
     // Generate student ID
     // --------------------------------------------------
-    const studentId =
-      `STU-${Date.now()}`;
+
+    const studentId = `STU-${Date.now()}`;
 
     // --------------------------------------------------
     // Create user
     // --------------------------------------------------
+
     const user = await User.create({
       name: name.trim(),
-
       email: normalizedEmail,
-
       phone: normalizedPhone,
-
       password: hashedPassword,
-
       role: "user",
-
       isVerified: false,
-
       otp,
-
-      otpExpires,
-
+      otpExpiry,
       studentId
     });
 
@@ -149,8 +148,8 @@ export async function registerUser(req, res) {
     // --------------------------------------------------
     // Send OTP
     // --------------------------------------------------
-    try {
 
+    try {
       await sendOtp(
         normalizedEmail,
         otp
@@ -162,7 +161,6 @@ export async function registerUser(req, res) {
       );
 
     } catch (emailError) {
-
       console.error(
         "OTP EMAIL ERROR:"
       );
@@ -200,6 +198,7 @@ export async function registerUser(req, res) {
     // --------------------------------------------------
     // Success
     // --------------------------------------------------
+
     return res.status(201).json({
       success: true,
       message:
@@ -207,7 +206,6 @@ export async function registerUser(req, res) {
     });
 
   } catch (error) {
-
     console.error(
       "Register User Error:",
       error
@@ -223,49 +221,109 @@ export async function registerUser(req, res) {
     });
   }
 }
+
+
 // ======================================================
 // STEP 2: VERIFY OTP
 // ======================================================
 
 export async function verifyOtp(req, res) {
   try {
-    const { email, otp } = req.body;
+    const {
+      email,
+      otp
+    } = req.body;
+
+    // --------------------------------------------------
+    // Validate fields
+    // --------------------------------------------------
 
     if (!email || !otp) {
       return res.status(400).json({
         success: false,
-        message: "Email and OTP are required",
+        message: "Email and OTP are required"
       });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail =
+      email.trim().toLowerCase();
+
+    // --------------------------------------------------
+    // Find user
+    // --------------------------------------------------
 
     const user = await User.findOne({
-      email: normalizedEmail,
+      email: normalizedEmail
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found"
       });
     }
 
-    const enteredOtp = String(otp).trim();
-    const storedOtp = String(user.otp || "").trim();
+    // --------------------------------------------------
+    // Normalize OTP values
+    // --------------------------------------------------
 
-    console.log("========== OTP DEBUG ==========");
-    console.log("Email:", normalizedEmail);
-    console.log("OTP received:", enteredOtp);
-    console.log("OTP stored:", storedOtp);
-    console.log("OTP expiry:", user.otpExpiry);
-    console.log("Current time:", new Date());
-    console.log("OTP match:", storedOtp === enteredOtp);
+    const enteredOtp =
+      String(otp).trim();
+
+    const storedOtp =
+      String(user.otp || "").trim();
+
+    // --------------------------------------------------
+    // Debug information
+    // --------------------------------------------------
+
+    console.log(
+      "========== OTP DEBUG =========="
+    );
+
+    console.log(
+      "Email:",
+      normalizedEmail
+    );
+
+    console.log(
+      "OTP received:",
+      enteredOtp
+    );
+
+    console.log(
+      "OTP stored:",
+      storedOtp
+    );
+
+    console.log(
+      "OTP expiry:",
+      user.otpExpiry
+    );
+
+    console.log(
+      "Current time:",
+      new Date()
+    );
+
+    console.log(
+      "OTP match:",
+      storedOtp === enteredOtp
+    );
+
     console.log(
       "OTP expired:",
-      !user.otpExpiry || new Date() > new Date(user.otpExpiry)
+      !user.otpExpiry ||
+      new Date() > new Date(user.otpExpiry)
     );
-    console.log("================================");
+
+    console.log(
+      "================================"
+    );
+
+    // --------------------------------------------------
+    // Validate OTP
+    // --------------------------------------------------
 
     if (
       storedOtp !== enteredOtp ||
@@ -274,30 +332,45 @@ export async function verifyOtp(req, res) {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid or expired OTP",
+        message: "Invalid or expired OTP"
       });
     }
 
+    // --------------------------------------------------
+    // Mark user as verified
+    // --------------------------------------------------
+
     user.isVerified = true;
+
+    // Clear OTP after successful verification
     user.otp = null;
     user.otpExpiry = null;
 
     await user.save();
 
+    // --------------------------------------------------
+    // Success
+    // --------------------------------------------------
+
     return res.status(200).json({
       success: true,
-      message: "OTP verified successfully",
+      message: "OTP verified successfully"
     });
 
   } catch (error) {
-    console.error("VERIFY OTP ERROR:", error);
+    console.error(
+      "VERIFY OTP ERROR:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Server error while verifying OTP",
+      message: "Server error while verifying OTP"
     });
   }
 }
+
+
 // ======================================================
 // STEP 3: COMPLETE PROFILE
 // ======================================================
@@ -310,53 +383,54 @@ export async function completeProfile(req, res) {
       stream,
       semester,
       year,
-      rollNo,
+      rollNo
     } = req.body;
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Validate email
-    // ------------------------------------------
+    // --------------------------------------------------
 
     if (!email) {
       return res.status(400).json({
         success: false,
-        message: "Email is required",
+        message: "Email is required"
       });
     }
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase();
+    const normalizedEmail =
+      email
+        .trim()
+        .toLowerCase();
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Find user
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const user = await User.findOne({
-      email: normalizedEmail,
+      email: normalizedEmail
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found"
       });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Check verification
-    // ------------------------------------------
+    // --------------------------------------------------
 
     if (!user.isVerified) {
       return res.status(400).json({
         success: false,
-        message: "User is not verified",
+        message: "User is not verified"
       });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Complete profile
-    // ------------------------------------------
+    // --------------------------------------------------
 
     Object.assign(user, {
       department,
@@ -364,14 +438,14 @@ export async function completeProfile(req, res) {
       semester,
       year,
       rollNo,
-      isProfileComplete: true,
+      isProfileComplete: true
     });
 
     await user.save();
 
     return res.status(200).json({
       success: true,
-      message: "Profile completed successfully",
+      message: "Profile completed successfully"
     });
 
   } catch (error) {
@@ -382,12 +456,12 @@ export async function completeProfile(req, res) {
 
     return res.status(500).json({
       success: false,
-      message:
-        "Error while completing user profile",
-      error: error.message,
+      message: "Error while completing user profile",
+      error: error.message
     });
   }
 }
+
 
 // ======================================================
 // STEP 4: LOGIN USER
@@ -397,55 +471,56 @@ export async function loginUser(req, res) {
   try {
     const {
       email,
-      password,
+      password
     } = req.body;
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Validate fields
-    // ------------------------------------------
+    // --------------------------------------------------
 
     if (!email || !password) {
       return res.status(400).json({
         success: false,
         message:
-          "Email and Password are required",
+          "Email and Password are required"
       });
     }
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase();
+    const normalizedEmail =
+      email
+        .trim()
+        .toLowerCase();
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Find user
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const user = await User.findOne({
-      email: normalizedEmail,
+      email: normalizedEmail
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found"
       });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Check verification
-    // ------------------------------------------
+    // --------------------------------------------------
 
     if (!user.isVerified) {
       return res.status(403).json({
         success: false,
         message:
-          "Please verify your email with OTP before login",
+          "Please verify your email with OTP before login"
       });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Compare password
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const passwordMatch =
       await bcrypt.compare(
@@ -456,13 +531,13 @@ export async function loginUser(req, res) {
     if (!passwordMatch) {
       return res.status(400).json({
         success: false,
-        message: "Invalid credentials",
+        message: "Invalid credentials"
       });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Check JWT secret
-    // ------------------------------------------
+    // --------------------------------------------------
 
     if (!process.env.JWT_SECRET) {
       console.error(
@@ -472,42 +547,42 @@ export async function loginUser(req, res) {
       return res.status(500).json({
         success: false,
         message:
-          "Server configuration error",
+          "Server configuration error"
       });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Generate JWT
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const token = jwt.sign(
       {
         id: user._id,
-        role: user.role,
+        role: user.role
       },
       process.env.JWT_SECRET,
       {
-        expiresIn: "7d",
+        expiresIn: "7d"
       }
     );
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Remove password
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const {
       password: _,
       ...userResponse
     } = user.toObject();
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Response
-    // ------------------------------------------
+    // --------------------------------------------------
 
     return res.status(200).json({
       success: true,
       token,
-      user: userResponse,
+      user: userResponse
     });
 
   } catch (error) {
@@ -519,10 +594,11 @@ export async function loginUser(req, res) {
     return res.status(500).json({
       success: false,
       message: "Error during login",
-      error: error.message,
+      error: error.message
     });
   }
 }
+
 
 // ======================================================
 // STEP 5: GET CURRENT USER PROFILE
@@ -537,13 +613,13 @@ export async function getProfile(req, res) {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found"
       });
     }
 
     return res.status(200).json({
       success: true,
-      user,
+      user
     });
 
   } catch (error) {
@@ -556,10 +632,11 @@ export async function getProfile(req, res) {
       success: false,
       message:
         "Error fetching user profile",
-      error: error.message,
+      error: error.message
     });
   }
 }
+
 
 // ======================================================
 // STEP 6: UPDATE USER PROFILE
@@ -575,12 +652,12 @@ export async function updateProfile(req, res) {
       stream,
       semester,
       academicYear,
-      rollNumber,
+      rollNumber
     } = req.body;
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Find current user
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const user = await User.findById(
       req.user.id
@@ -589,47 +666,47 @@ export async function updateProfile(req, res) {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found"
       });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Update email
-    // ------------------------------------------
+    // --------------------------------------------------
 
     if (email) {
-      const normalizedEmail = email
-        .trim()
-        .toLowerCase();
+      const normalizedEmail =
+        email
+          .trim()
+          .toLowerCase();
 
       if (
         normalizedEmail !==
         user.email.toLowerCase()
       ) {
-        // Students cannot change email
 
+        // Students cannot change email
         if (user.role === "user") {
           return res.status(400).json({
             success: false,
             message:
-              "Students are not allowed to change their email address",
+              "Students are not allowed to change their email address"
           });
         }
 
         // Check duplicate email
-
         const existingUser =
           await User.findOne({
             email: normalizedEmail,
             _id: {
-              $ne: user._id,
-            },
+              $ne: user._id
+            }
           });
 
         if (existingUser) {
           return res.status(400).json({
             success: false,
-            message: "Email already in use",
+            message: "Email already in use"
           });
         }
 
@@ -637,29 +714,30 @@ export async function updateProfile(req, res) {
       }
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Update phone
-    // ------------------------------------------
+    // --------------------------------------------------
 
     if (phone) {
-      const cleanPhone = phone
-        .toString()
-        .replace(/\D/g, "");
+      const cleanPhone =
+        phone
+          .toString()
+          .replace(/\D/g, "");
 
       if (cleanPhone.length !== 10) {
         return res.status(400).json({
           success: false,
           message:
-            "Mobile number must be exactly 10 digits",
+            "Mobile number must be exactly 10 digits"
         });
       }
 
       user.phone = cleanPhone;
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Update other fields
-    // ------------------------------------------
+    // --------------------------------------------------
 
     if (name) {
       user.name = name;
@@ -685,15 +763,15 @@ export async function updateProfile(req, res) {
       user.rollNo = rollNumber;
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Save
-    // ------------------------------------------
+    // --------------------------------------------------
 
     await user.save();
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Remove password
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const {
       password: _,
@@ -703,7 +781,7 @@ export async function updateProfile(req, res) {
     return res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      user: userResponse,
+      user: userResponse
     });
 
   } catch (error) {
@@ -715,10 +793,11 @@ export async function updateProfile(req, res) {
     return res.status(500).json({
       success: false,
       message: "Error updating profile",
-      error: error.message,
+      error: error.message
     });
   }
 }
+
 
 // ======================================================
 // STEP 7: GET ALL STUDENTS - ADMIN
@@ -729,12 +808,12 @@ export async function getusers(req, res) {
     const users = await User.find({
       role: "user",
       isVerified: true,
-      isProfileComplete: true,
+      isProfileComplete: true
     }).select("-password");
 
     return res.status(200).json({
       success: true,
-      users,
+      users
     });
 
   } catch (error) {
@@ -746,10 +825,11 @@ export async function getusers(req, res) {
     return res.status(500).json({
       success: false,
       message: "Error fetching students",
-      error: error.message,
+      error: error.message
     });
   }
 }
+
 
 // ======================================================
 // STEP 8: ADMIN REGISTRATION
@@ -761,12 +841,12 @@ export async function registerAdmin(req, res) {
       name,
       email,
       phone,
-      password,
+      password
     } = req.body;
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Validate fields
-    // ------------------------------------------
+    // --------------------------------------------------
 
     if (
       !name ||
@@ -777,57 +857,62 @@ export async function registerAdmin(req, res) {
       return res.status(400).json({
         success: false,
         message:
-          "Please enter all required fields",
+          "Please enter all required fields"
       });
     }
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase();
+    const normalizedEmail =
+      email
+        .trim()
+        .toLowerCase();
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Check existing user
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const existingUser =
       await User.findOne({
-        email: normalizedEmail,
+        email: normalizedEmail
       });
 
     if (existingUser) {
       return res.status(400).json({
         success: false,
         message:
-          "User already exists with the same email",
+          "User already exists with the same email"
       });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Clean phone
-    // ------------------------------------------
+    // --------------------------------------------------
 
-    const cleanPhone = phone
-      .toString()
-      .replace(/\D/g, "");
+    const cleanPhone =
+      phone
+        .toString()
+        .replace(/\D/g, "");
 
     if (cleanPhone.length !== 10) {
       return res.status(400).json({
         success: false,
         message:
-          "Mobile number must be exactly 10 digits",
+          "Mobile number must be exactly 10 digits"
       });
     }
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Hash password
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const hashPassword =
-      await bcrypt.hash(password, 10);
+      await bcrypt.hash(
+        password,
+        10
+      );
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Create admin
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const user = await User.create({
       name,
@@ -835,26 +920,26 @@ export async function registerAdmin(req, res) {
       phone: cleanPhone,
       password: hashPassword,
       role: "admin",
-      isVerified: true,
+      isVerified: true
     });
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Remove password
-    // ------------------------------------------
+    // --------------------------------------------------
 
     const {
       password: _,
       ...userResponse
     } = user.toObject();
 
-    // ------------------------------------------
+    // --------------------------------------------------
     // Response
-    // ------------------------------------------
+    // --------------------------------------------------
 
     return res.status(201).json({
       success: true,
       message: "Admin registered successfully",
-      user: userResponse,
+      user: userResponse
     });
 
   } catch (error) {
@@ -866,7 +951,21 @@ export async function registerAdmin(req, res) {
     return res.status(500).json({
       success: false,
       message: "Error registering admin",
-      error: error.message,
+      error: error.message
     });
   }
 }
+
+console.log("========== OTP DEBUG ==========");
+console.log("Email:", normalizedEmail);
+console.log("OTP received:", enteredOtp);
+console.log("OTP stored:", storedOtp);
+console.log("OTP expiry:", user.otpExpiry);
+console.log("Current time:", new Date());
+console.log("OTP match:", storedOtp === enteredOtp);
+console.log(
+  "OTP expired:",
+  !user.otpExpiry ||
+  new Date() > new Date(user.otpExpiry)
+);
+console.log("================================");
