@@ -229,40 +229,16 @@ export async function registerUser(req, res) {
 
 export async function verifyOtp(req, res) {
   try {
-    const {
-      email,
-      otp,
-    } = req.body;
+    const { email, otp } = req.body;
 
-    // ------------------------------------------
-    // Validate email
-    // ------------------------------------------
-
-    if (!email) {
+    if (!email || !otp) {
       return res.status(400).json({
         success: false,
-        message: "Email is required",
+        message: "Email and OTP are required",
       });
     }
 
-    if (!otp) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP is required",
-      });
-    }
-
-    // ------------------------------------------
-    // Normalize email
-    // ------------------------------------------
-
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase();
-
-    // ------------------------------------------
-    // Find user
-    // ------------------------------------------
+    const normalizedEmail = email.trim().toLowerCase();
 
     const user = await User.findOne({
       email: normalizedEmail,
@@ -275,14 +251,26 @@ export async function verifyOtp(req, res) {
       });
     }
 
-    // ------------------------------------------
-    // Check OTP
-    // ------------------------------------------
+    const enteredOtp = String(otp).trim();
+    const storedOtp = String(user.otp || "").trim();
+
+    console.log("========== OTP DEBUG ==========");
+    console.log("Email:", normalizedEmail);
+    console.log("OTP received:", enteredOtp);
+    console.log("OTP stored:", storedOtp);
+    console.log("OTP expiry:", user.otpExpiry);
+    console.log("Current time:", new Date());
+    console.log("OTP match:", storedOtp === enteredOtp);
+    console.log(
+      "OTP expired:",
+      !user.otpExpiry || new Date() > new Date(user.otpExpiry)
+    );
+    console.log("================================");
 
     if (
-      user.otp !== otp ||
-      !user.otpExpires ||
-      new Date() > new Date(user.otpExpires)
+      storedOtp !== enteredOtp ||
+      !user.otpExpiry ||
+      new Date() > new Date(user.otpExpiry)
     ) {
       return res.status(400).json({
         success: false,
@@ -290,15 +278,9 @@ export async function verifyOtp(req, res) {
       });
     }
 
-    // ------------------------------------------
-    // Verify user
-    // ------------------------------------------
-
-    Object.assign(user, {
-      isVerified: true,
-      otp: null,
-      otpExpires: null,
-    });
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpiry = null;
 
     await user.save();
 
@@ -308,19 +290,14 @@ export async function verifyOtp(req, res) {
     });
 
   } catch (error) {
-    console.error(
-      "Error verifying OTP:",
-      error
-    );
+    console.error("VERIFY OTP ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Error while verifying OTP",
-      error: error.message,
+      message: "Server error while verifying OTP",
     });
   }
 }
-
 // ======================================================
 // STEP 3: COMPLETE PROFILE
 // ======================================================
